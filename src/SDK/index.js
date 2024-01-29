@@ -13,25 +13,17 @@ class IdentifyModule {
     }
 }
 
-// BrokerConfig Class
-// class BrokerConfig {
-//     constructor() {
-//         this.brokerUsername = null;
-//         this.brokerPassword = null;
-//         this.securityToken = null;
-//         this.otherConfigs = new Map();
-//     }
-// }
+
 
 // SecureSession Class
 class SecureSession {
-    constructor() {
-        this.sessionKey = OneSignal.Session;
-        this.isSecure = !!OneSignal.Session;
+    constructor(sessionKey) {
+        this.sessionKey = sessionKey;
+        this.isSecure = !!sessionKey;
     }
 
     createSession() {
-        this.sessionKey = OneSignal.Session
+        this.sessionKey = OneSignal.User.PushSubscription.token
     }
 
     isSecure() {
@@ -61,14 +53,17 @@ export class SDKManager {
     }
 
     init(clientToken) {
-        this.brokerConnection.connect(clientToken)
-        this.secureSession= this.identify.createSecureSession();
-        
+        return this.brokerConnection.connect(clientToken).then(()=>{
+            this.subscribe.subscribeId = OneSignal.User.PushSubscription.id
+            console.log(OneSignal.Session)
+            this.secureSession.sessionKey = OneSignal.User.PushSubscription.token
+        })
     }
 
     subscribeTopics(topics, callBackFn) {
-        this.subscribe.callBackFn(callBackFn)
-        this.subscribe.topicsToSubscribe(topics)
+        this.subscribe.callBackFn = callBackFn
+        this.subscribe.topicsToSubscribe = topics
+        return this.subscribe.subscribeInTopics()
     }
 
     publishToTopics(topics, message) {
@@ -80,7 +75,7 @@ export class SDKManager {
     }
 
     unSubscribeTopics(topics) {
-        this.brokerConnection.unsubscribe(topics)
+        return this.brokerConnection.unsubscribe(topics)
     }
 }
 
@@ -127,6 +122,7 @@ class BrokerConnection {
 
     connect(configs) {
         this.connectionInfo= OneSignal.init({appId:configs})
+        return this.connectionInfo
     }
 
     disconnect() {
@@ -138,9 +134,7 @@ class BrokerConnection {
     }
 
     subscribe(topics) {
-        this.connectionInfo.then((subscribe)=>{
-            subscribe(topics)
-        })
+        return OneSignal.User.PushSubscription.optIn()
     }
 
     publish(topics, message) {
@@ -150,9 +144,8 @@ class BrokerConnection {
     }
 
     unsubscribe(topics) {
-        this.connectionInfo.then((subscribe)=>{
-            subscribe(topics)
-        })
+        //OneSignal is Singel Topic
+        return OneSignal.User.PushSubscription.optOut()
     }
 }
 
@@ -167,11 +160,11 @@ class SubscribeModule {
     }
 
     subscribeInTopics() {
-        this.brokerConnection.subscribe(this.topicsToSubscribe)
+        return this.brokerConnection.subscribe(this.topicsToSubscribe)
     }
 
     onMessageReceived(message) {
-        this.brokerConnection.connectionInfo.then(this.callBackFn)
+        OneSignal.User.PushSubscription.addEventListener(this.callBackFn(message))
     }
 
     getSubscribeId() {
@@ -203,5 +196,14 @@ class PublishModule {
 
     publishToTopics(topics, message) {
         // Implementation goes here
+    }
+}
+// BrokerConfig Class
+class BrokerConfig {
+    constructor() {
+        this.brokerUsername = null;
+        this.brokerPassword = null;
+        this.securityToken = null;
+        this.otherConfigs = new Map();
     }
 }
