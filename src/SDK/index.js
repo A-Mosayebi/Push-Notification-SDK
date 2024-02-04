@@ -1,13 +1,18 @@
-import { SERVER_ADDRESS } from "../constant/server";
+import { SERVER_ADDRESS, SESSION_DURATION } from "../constant/server";
 import OneSignal from "../onesignalUtils/reactOnesignal";
 
 // Identify Module
 class IdentifyModule {
     constructor() {
-        this.brokerConnection = new BrokerConnection();
-        this.secureSession = new SecureSession();
+        this.secureSession = new SecureSession(); 
+       
     }
-
+    connectToBroker(clientToken,brokerConnection){
+        return brokerConnection.connect(clientToken).then(()=>{
+            this.subscribe.subscribeId = OneSignal.User.PushSubscription.id
+            this.secureSession.sessionKey = OneSignal.User.PushSubscription.token
+        })
+    }
     createSecureSession() {
         this.secureSession.createSession()
     }
@@ -35,8 +40,7 @@ class SecureSession {
     }
 
     getSessionDuration() {
-
-        return 0;
+        return SESSION_DURATION;
     }
 }
 
@@ -53,17 +57,12 @@ export class SDKManager {
     }
 
     init(clientToken) {
-        return this.brokerConnection.connect(clientToken).then(()=>{
-            this.subscribe.subscribeId = OneSignal.User.PushSubscription.id
-            console.log(OneSignal.Session)
-            this.secureSession.sessionKey = OneSignal.User.PushSubscription.token
-        })
+        return this.identify.connectToBroker(clientToken,this.brokerConnection)
     }
 
     subscribeTopics(topics, callBackFn) {
-        this.subscribe.callBackFn = callBackFn
-        this.subscribe.topicsToSubscribe = topics
-        return this.subscribe.subscribeInTopics()
+        this.subscribe.subscribeInTopics(topics,callBackFn)
+        return this.brokerConnection.subscribe(this.topicsToSubscribe) 
     }
 
     publishToTopics(topics, message) {
@@ -75,6 +74,7 @@ export class SDKManager {
     }
 
     unSubscribeTopics(topics) {
+        this.subscribe.unSubscribeTopics(topics)
         return this.brokerConnection.unsubscribe(topics)
     }
 }
@@ -156,11 +156,11 @@ class SubscribeModule {
         this.topicsToSubscribe = topicsToSubscribe;
         this.topicsToUnsubscribe = topicsToUnsubscribe;
         this.subscribeId = subscribeId;
-        this.brokerConnection = new BrokerConnection()
     }
 
-    subscribeInTopics() {
-        return this.brokerConnection.subscribe(this.topicsToSubscribe)
+    subscribeInTopics(topicsToSubscribe,callBackFn) {
+        this.callBackFn = callBackFn
+        this.topicsToSubscribe = topicsToSubscribe
     }
 
     onMessageReceived(message) {
@@ -171,8 +171,8 @@ class SubscribeModule {
         return this.subscribeId;
     }
 
-    unSubscribeTopics() {
-        this.brokerConnection.unsubscribe(this.topicsToUnsubscribe)
+    unSubscribeTopics(topicsToUnsubscribe) {
+        this.topicsToUnsubscribe = topicsToUnsubscribe
     }
 }
 
@@ -196,14 +196,5 @@ class PublishModule {
 
     publishToTopics(topics, message) {
         // Implementation goes here
-    }
-}
-// BrokerConfig Class
-class BrokerConfig {
-    constructor() {
-        this.brokerUsername = null;
-        this.brokerPassword = null;
-        this.securityToken = null;
-        this.otherConfigs = new Map();
     }
 }
